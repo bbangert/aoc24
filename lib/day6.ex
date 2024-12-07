@@ -27,9 +27,10 @@ defmodule Day6 do
     initial_map
     |> then(&patrol_map({:ok, &1}))
     |> then(&unique_traversals(elem(&1, 1)))
-    |> Enum.map(&check_with_obstruction(initial_map, &1))
-    |> Enum.filter(&(elem(&1, 0) == :looped))
-    |> Enum.count()
+    |> Task.async_stream(&check_with_obstruction(initial_map, &1))
+    |> Enum.reduce(0, fn {:ok, {result, _}}, acc ->
+      if result == :looped, do: acc + 1, else: acc
+    end)
   end
 
   def check_with_obstruction(map, {x, y}) do

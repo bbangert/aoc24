@@ -24,9 +24,10 @@ defmodule Day7 do
   def part2(input) do
     input
     |> parse_input()
-    |> Enum.filter(&can_make_total(&1, :use_concat))
-    |> Enum.map(&elem(&1, 0))
-    |> Enum.sum()
+    |> Task.async_stream(fn {total, numbers} -> {total, can_make_total({total, numbers}, :use_concat)} end)
+    |> Enum.reduce(0, fn {:ok, {value, result}}, acc ->
+      if result, do: acc + value, else: acc
+    end)
   end
 
   def can_make_total({total, numbers}, opts \\ :none),
