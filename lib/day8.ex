@@ -55,37 +55,25 @@ defmodule Day8 do
     Enum.flat_map(rem_checks, &pair_antinodes(map, cur_check, &1, resonate))
   end
 
-  def pair_antinodes(map, {x1, y1}, {x2, y2}, :basic) do
-    dx = x2 - x1
-    dy = y2 - y1
-    [{x1 - dx, y1 - dy}, {x2 + dx, y2 + dy}] |> Enum.reject(&outside_bounds?(map, &1))
+  def pair_antinodes(map, a1, a2, :basic) do
+    delta = pair_delta(a1, a2)
+    [pair_sub(delta).(a1), pair_add(delta).(a2)] |> Enum.reject(&outside_bounds?(map, &1))
   end
 
-  def pair_antinodes(map, {x1, y1}, {x2, y2}, :resonate) do
-    dx = x2 - x1
-    dy = y2 - y1
-
-    pair_resonates(map, {x1, y1}, {dx, dy}, :back) ++
-      pair_resonates(map, {x2, y2}, {dx, dy}, :forward) ++ [{x1, y1}, {x2, y2}]
+  def pair_antinodes(map, a1, a2, :resonate) do
+    delta = pair_delta(a1, a2)
+    pair_resonates(map, a1, pair_sub(delta)) ++ pair_resonates(map, a2, pair_add(delta))
   end
 
-  def pair_resonates(map, {x, y}, {dx, dy}, :back) do
-    antinode = {x - dx, y - dy}
+  def pair_delta({x1, y1}, {x2, y2}), do: {x2 - x1, y2 - y1}
+  def pair_sub({dx, dy}), do: fn {x, y} -> {x - dx, y - dy} end
+  def pair_add({dx, dy}), do: fn {x, y} -> {x + dx, y + dy} end
 
-    if outside_bounds?(map, antinode) do
+  def pair_resonates(map, pos, op) do
+    if outside_bounds?(map, pos) do
       []
     else
-      [antinode] ++ pair_resonates(map, antinode, {dx, dy}, :back)
-    end
-  end
-
-  def pair_resonates(map, {x, y}, {dx, dy}, :forward) do
-    antinode = {x + dx, y + dy}
-
-    if outside_bounds?(map, antinode) do
-      []
-    else
-      [antinode] ++ pair_resonates(map, antinode, {dx, dy}, :forward)
+      [pos] ++ pair_resonates(map, op.(pos), op)
     end
   end
 
