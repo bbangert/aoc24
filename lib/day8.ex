@@ -6,11 +6,11 @@ defmodule Day8 do
       iex> Day8.part1("............\n........0...\n.....0......\n.......0....\n....0.......\n......A.....\n............\n............\n........A...\n.........A..\n............\n............\n")
       14
   """
-  def part1(input) do
+  def part1(input, resonate \\ :basic) do
     input
     |> parse_input()
-    |> then(&find_antinodes/1)
-    |> then(&unique_antinodes/1)
+    |> then(&find_antinodes(&1, resonate))
+    |> Enum.uniq()
     |> Enum.count()
   end
 
@@ -21,32 +21,12 @@ defmodule Day8 do
       iex> Day8.part2("............\n........0...\n.....0......\n.......0....\n....0.......\n......A.....\n............\n............\n........A...\n.........A..\n............\n............\n")
       34
   """
-  def part2(input) do
-    input
-    |> parse_input()
-    |> then(&find_antinodes(&1, :resonate))
-    |> then(&unique_antinodes/1)
-    |> Enum.count()
-  end
-
-  def unique_antinodes(map) do
-    map.antinodes
-    |> Enum.flat_map(fn {_, antinodes} -> MapSet.to_list(antinodes) end)
-    |> MapSet.new()
-  end
+  def part2(input), do: part1(input, :resonate)
 
   def find_antinodes(map, resonate \\ :basic) do
-    Enum.reduce(map.antennas, map, fn {antenna, coords}, map ->
-      coords
-      |> Enum.with_index()
-      |> Enum.flat_map(fn {coord, index} ->
+    Enum.flat_map(Map.values(map.antennas), fn coords ->
+      Enum.flat_map(Enum.with_index(coords), fn {coord, index} ->
         find_antenna_antinodes(map, coord, Enum.drop(coords, index + 1), resonate)
-      end)
-      |> Enum.reduce(map, fn coord, map ->
-        put_in(
-          map.antinodes,
-          Map.update(map.antinodes, antenna, MapSet.new([coord]), &MapSet.put(&1, coord))
-        )
       end)
     end)
   end
@@ -55,49 +35,31 @@ defmodule Day8 do
     Enum.flat_map(rem_checks, &pair_antinodes(map, cur_check, &1, resonate))
   end
 
-  def pair_antinodes(map, {x1, y1}, {x2, y2}, :basic) do
-    dx = x2 - x1
-    dy = y2 - y1
-    [{x1 - dx, y1 - dy}, {x2 + dx, y2 + dy}] |> Enum.reject(&outside_bounds?(map, &1))
+  def pair_antinodes(map, a1, a2, :basic) do
+    delta = pair_sub(a1).(a2)
+    [pair_sub(delta).(a1), pair_add(delta).(a2)] |> Enum.reject(&outside_bounds?(map, &1))
   end
 
-  def pair_antinodes(map, {x1, y1}, {x2, y2}, :resonate) do
-    dx = x2 - x1
-    dy = y2 - y1
-
-    pair_resonates(map, {x1, y1}, {dx, dy}, :back) ++
-      pair_resonates(map, {x2, y2}, {dx, dy}, :forward) ++ [{x1, y1}, {x2, y2}]
+  def pair_antinodes(map, a1, a2, :resonate) do
+    delta = pair_sub(a1).(a2)
+    pair_resonates(map, a1, pair_sub(delta)) ++ pair_resonates(map, a2, pair_add(delta))
   end
 
-  def pair_resonates(map, {x, y}, {dx, dy}, :back) do
-    antinode = {x - dx, y - dy}
+  def pair_sub({dx, dy}), do: fn {x, y} -> {x - dx, y - dy} end
+  def pair_add({dx, dy}), do: fn {x, y} -> {x + dx, y + dy} end
 
-    if outside_bounds?(map, antinode) do
+  def pair_resonates(map, pos, op) do
+    if outside_bounds?(map, pos) do
       []
     else
-      [antinode] ++ pair_resonates(map, antinode, {dx, dy}, :back)
+      [pos] ++ pair_resonates(map, op.(pos), op)
     end
   end
 
-  def pair_resonates(map, {x, y}, {dx, dy}, :forward) do
-    antinode = {x + dx, y + dy}
-
-    if outside_bounds?(map, antinode) do
-      []
-    else
-      [antinode] ++ pair_resonates(map, antinode, {dx, dy}, :forward)
-    end
-  end
-
-  def outside_bounds?(map, {x, y}) do
-    x < 0 || x >= map.width || y < 0 || y >= map.height
-  end
+  def outside_bounds?(map, {x, y}), do: x < 0 || x >= map.width || y < 0 || y >= map.height
 
   defp parse_input(input) do
-    raw_map =
-      input
-      |> String.trim()
-      |> String.split("\n")
+    raw_map = String.split(String.trim(input), "\n")
 
     map = %{
       :width => Enum.at(raw_map, 0) |> String.length(),
@@ -106,9 +68,7 @@ defmodule Day8 do
       :antinodes => %{}
     }
 
-    raw_map
-    |> Enum.with_index()
-    |> Enum.reduce(map, fn {row, y}, map ->
+    Enum.reduce(Enum.with_index(raw_map), map, fn {row, y}, map ->
       row
       |> String.graphemes()
       |> Enum.with_index()
