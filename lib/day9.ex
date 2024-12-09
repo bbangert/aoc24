@@ -28,13 +28,13 @@ defmodule Day9 do
   end
 
   def checksum(blocks) do
-    Enum.map(0..(:array.size(blocks) - 1), fn index ->
-      case :array.get(index, blocks) do
-        "." -> 0
-        file_id -> file_id * index
-      end
-    end)
-    |> Enum.sum()
+    for index <- 0..(:array.size(blocks) - 1), reduce: 0 do
+      acc ->
+        case :array.get(index, blocks) do
+          "." -> acc
+          file_id -> acc + file_id * index
+        end
+    end
   end
 
   def file_defragment(blocks) do
@@ -57,10 +57,11 @@ defmodule Day9 do
     if gap_start >= start_index do
       blocks
     else
-      Enum.reduce(0..(end_index - start_index), blocks, fn index, blocks ->
-        :array.set(gap_start + index, file_id, blocks)
-        |> then(&:array.set(start_index + index, ".", &1))
-      end)
+      for index <- 0..(end_index - start_index), reduce: blocks do
+        blocks ->
+          :array.set(gap_start + index, file_id, blocks)
+          |> then(&:array.set(start_index + index, ".", &1))
+      end
     end
   end
 
